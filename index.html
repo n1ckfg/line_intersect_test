@@ -31,10 +31,93 @@
 	            xobj.send(null);  
 			}
 
-			readJson("./files/opensfm.json", function(response) {
-				console.log(response);
-	            let json = JSON.parse(response);
+			function randomColorString() {
+				let base = 192;
+				let rand = 255 - base;
+				let r = parseInt(base + Math.random() * rand);
+				let g = parseInt(base + Math.random() * rand);
+				let b = parseInt(base + Math.random() * rand);
+				return "rgb(" + r + "," + g + "," + b + ")"
+			}
 
+			const scale = 10;
+
+			class Eye {
+
+				constructor(_position, _rotation, _width, _height, _focal, _k1, _k2) {
+					this.position = _position.multiplyScalar(scale);
+					this.rotation = _rotation;
+					this.width = _width;
+					this.height = _height;
+					this.focal = _focal;
+					this.k1 = _k1;
+					this.k2 = _k2;
+
+					this.color = randomColorString();
+					this.geometry = new THREE.ConeBufferGeometry( 5, 10, 4 );
+					this.material = new THREE.MeshBasicMaterial( {color: this.color} );
+					this.mesh = new THREE.Mesh(this.geometry, this.material);
+					this.mesh.position.set(this.position.x, this.position.y, this.position.z);
+					this.mesh.rotation.set(this.rotation.x, this.rotation.y, this.rotation.z);
+					this.points = [];
+					this.origin = this.createLine(this.position, new THREE.Vector3(0,100,0));
+
+					scene.add(this.origin);
+				}
+
+				createLine(start, end) {
+					let geo = new THREE.BufferGeometry();
+					geo.positions = new Float32Array(6);
+					geo.setAttribute('position', new THREE.BufferAttribute(geo.positions, 3));
+					let line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: this.color, side: THREE.DoubleSide }));
+
+					geo.positions[0] = start.x;
+					geo.positions[1] = start.y;
+					geo.positions[2] = start.z;
+
+					geo.positions[3] = start.x + end.x;
+					geo.positions[4] = start.y + end.y;
+					geo.positions[5] = start.z + end.z;
+
+					return line;
+				}
+
+			}
+
+			let eyes = [];
+			let ready = false;
+
+			readJson("./files/opensfm.json", function(response) {
+	            let json = JSON.parse(response)[0];
+
+	            let eyeList = [];
+	            for (let el in json["shots"]) {
+	            	eyeList.push(json["shots"][el]);
+	            }
+
+	            for (let eyeEl of eyeList) {
+	            	let px = eyeEl.translation[0];
+	            	let py = eyeEl.translation[1];
+	            	let pz = eyeEl.translation[2];
+		           	let position = new THREE.Vector3(px, py, pz);
+
+	            	let rx = eyeEl.rotation[0];
+	            	let ry = eyeEl.rotation[1];
+	            	let rz = eyeEl.rotation[2];
+	         		let rotation = new THREE.Vector3(rx, ry, rz);
+
+					let eyeElCamera = json["cameras"][eyeEl["camera"]];
+					let width = eyeElCamera.width;
+					let height = eyeElCamera.height;
+					let focal = eyeElCamera.focal;
+					let k1 = eyeElCamera.k1;
+					let k2 = eyeElCamera.k2;
+
+					let eye = new Eye(position, rotation, width, height, focal, k1, k2);
+					eyes.push(eye);	            	
+	            }
+
+	            ready = true;
 			});
 
 			let mpx = document.getElementById('mpx');
@@ -62,7 +145,7 @@
 
 			let gLineP = new THREE.BufferGeometry();
 			gLineP.positions = new Float32Array(6);
-			gLineP.addAttribute('position', new THREE.BufferAttribute(gLineP.positions, 3).setDynamic(true)    );
+			gLineP.setAttribute('position', new THREE.BufferAttribute(gLineP.positions, 3).setDynamic(true));
 			let lineP = new THREE.Line(gLineP, new THREE.LineBasicMaterial({ color: 0x00ffff, side: THREE.DoubleSide }));
 
 			let p = new THREE.Vector3(-15, 12, -5);
@@ -80,7 +163,7 @@
 
 			let gLineQ = new THREE.BufferGeometry();
 			gLineQ.positions = new Float32Array(6);
-			gLineQ.addAttribute('position', new THREE.BufferAttribute(gLineQ.positions, 3)   );
+			gLineQ.setAttribute('position', new THREE.BufferAttribute(gLineQ.positions, 3));
 			let lineQ = new THREE.Line(gLineQ, new THREE.LineBasicMaterial({ color: 0xffff00, side: THREE.DoubleSide }));
 			let q = new THREE.Vector3(-12, 14, -15);
 			let mq = new THREE.Vector3(34, -12, 33);
@@ -103,6 +186,13 @@
 				requestAnimationFrame(animate);
 				renderer.render(scene, camera);
 				controls.update();
+
+				if (ready) {
+					for (let eye of eyes) {
+						scene.add(eye.mesh);
+					}
+					ready = false;
+				}
 			}
 
 			function linesDistance() { // mp and mq    non-collinear
