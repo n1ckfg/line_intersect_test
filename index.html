@@ -11,161 +11,165 @@
 
 	<body>
 		mp.x <input type="range" id="mpx" min="0" max="1" value="0.725" step="0.0001" style="width: 90%;"> 
-		<div id="distance"> </div> 
-		<div id="Pn"> </div> 
-		<div id="Qn"> </div>
+		<div id="distance"></div> 
+		<div id="Pn"></div> 
+		<div id="Qn"></div>
 
 		<script>
-		// @author hofk
+			// based on demo by @hofk
+			"use strict";
 
-		var mpx = document.getElementById( 'mpx' );
-		mpx.onchange = refresh;
+			function readJson() {
+				let xobj = new XMLHttpRequest();
+	            xobj.overrideMimeType("application/json");
+	            xobj.open('GET', animationPath, true);
+	            xobj.onreadystatechange = function() {
+	                if (xobj.readyState == 4 && xobj.status == "200") {
+	                    // Required use of an anonymous callback as .open will NOT return a value but simply returns undefined in asynchronous mode
+	                    latk.layers = Latk.jsonToGp(JSON.parse(xobj.responseText));
+	                    console.log("Latk loaded from json.");
+	                    latk.ready = true;
+	                }
+	            };
+	            xobj.send(null);  
+			}
 
-		var dpnqnDet, pnDet, qnDet; // uses determinant
-		var dpnqnCr, pnCr, qnCr; // uses cross vectors
-		var dist; // uses formula distance
 
-		var scene = new THREE.Scene();
-		var camera = new THREE.PerspectiveCamera( 55, window.innerWidth / window.innerHeight, 0.1, 1000 );
-		camera.position.set( 0, 10, 40 );
-		var renderer = new THREE.WebGLRenderer( { antialias: true } );
-		renderer.setSize( window.innerWidth, window.innerHeight );
-		renderer.setClearColor( 0xaaaaaa, 1 );	
-		var container = document.createElement( 'div' );
-		document.body.appendChild( container );
-		container.appendChild( renderer.domElement ); 
-		var controls = new THREE.OrbitControls( camera, renderer.domElement );
+			let mpx = document.getElementById('mpx');
+			mpx.onchange = refresh;
 
-		var axesHelper = new THREE.AxesHelper( 28 );
-		scene.add( axesHelper );
-		var grid = new THREE.GridHelper( 50, 50 );
-		scene.add( grid );
+			let dpnqnDet, pnDet, qnDet; // uses determinant
+			let dpnqnCr, pnCr, qnCr; // uses cross vectors
+			let dist; // uses formula distance
 
-		var gLineP = new THREE.BufferGeometry( );
-		gLineP.positions = new Float32Array( 6 );
-		gLineP.addAttribute( 'position', new THREE.BufferAttribute( gLineP.positions, 3 ).setDynamic( true )     );
-		lineP    = new THREE.Line( gLineP, new THREE.LineBasicMaterial( { color: 0x00ffff, side: THREE.DoubleSide } ) );
+			let scene = new THREE.Scene();
+			let camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+			camera.position.set(0, 10, 40);
+			let renderer = new THREE.WebGLRenderer({ antialias: true });
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			renderer.setClearColor(0xaaaaaa, 1);	
+			let container = document.createElement('div');
+			document.body.appendChild(container);
+			container.appendChild(renderer.domElement); 
+			let controls = new THREE.OrbitControls(camera, renderer.domElement);
 
-		var p = new THREE.Vector3( -15, 12, -5 );
-		var mp = new THREE.Vector3( 35, -8 , 15 ); // mp.x can be changed with slider
+			let axesHelper = new THREE.AxesHelper(28);
+			scene.add(axesHelper);
+			let grid = new THREE.GridHelper(50, 50);
+			scene.add(grid);
 
-		gLineP.positions[ 0 ] = p.x;
-		gLineP.positions[ 1 ] = p.y;
-		gLineP.positions[ 2 ] = p.z;
+			let gLineP = new THREE.BufferGeometry();
+			gLineP.positions = new Float32Array(6);
+			gLineP.addAttribute('position', new THREE.BufferAttribute(gLineP.positions, 3).setDynamic(true)    );
+			let lineP = new THREE.Line(gLineP, new THREE.LineBasicMaterial({ color: 0x00ffff, side: THREE.DoubleSide }));
 
-		gLineP.positions[ 3 ] = p.x + mp.x;
-		gLineP.positions[ 4 ] = p.y + mp.y;
-		gLineP.positions[ 5 ] = p.z + mp.z;
+			let p = new THREE.Vector3(-15, 12, -5);
+			let mp = new THREE.Vector3(35, -8 , 15); // mp.x can be changed with slider
 
-		scene.add( lineP );
+			gLineP.positions[0] = p.x;
+			gLineP.positions[1] = p.y;
+			gLineP.positions[2] = p.z;
 
-		var gLineQ = new THREE.BufferGeometry( );
-		gLineQ.positions = new Float32Array( 6 );
-		gLineQ.addAttribute( 'position', new THREE.BufferAttribute( gLineQ.positions, 3 )    );
-		lineQ    = new THREE.Line( gLineQ, new THREE.LineBasicMaterial( { color: 0xffff00, side: THREE.DoubleSide } ) );
+			gLineP.positions[3] = p.x + mp.x;
+			gLineP.positions[4] = p.y + mp.y;
+			gLineP.positions[5] = p.z + mp.z;
 
-		var q = new THREE.Vector3( -12, 14, -15 );
-		var mq = new THREE.Vector3( 34, -12, 33 );
+			scene.add(lineP);
 
-		gLineQ.positions[ 0 ] = q.x;
-		gLineQ.positions[ 1 ] = q.y;
-		gLineQ.positions[ 2 ] = q.z;
+			let gLineQ = new THREE.BufferGeometry();
+			gLineQ.positions = new Float32Array(6);
+			gLineQ.addAttribute('position', new THREE.BufferAttribute(gLineQ.positions, 3)   );
+			let lineQ = new THREE.Line(gLineQ, new THREE.LineBasicMaterial({ color: 0xffff00, side: THREE.DoubleSide }));
+			let q = new THREE.Vector3(-12, 14, -15);
+			let mq = new THREE.Vector3(34, -12, 33);
 
-		gLineQ.positions[ 3 ] = q.x + mq.x;
-		gLineQ.positions[ 4 ] = q.y + mq.y;
-		gLineQ.positions[ 5 ] = q.z + mq.z;
+			gLineQ.positions[0] = q.x;
+			gLineQ.positions[1] = q.y;
+			gLineQ.positions[2] = q.z;
 
-		scene.add( lineQ );
+			gLineQ.positions[3] = q.x + mq.x;
+			gLineQ.positions[4] = q.y + mq.y;
+			gLineQ.positions[5] = q.z + mq.z;
 
-		refresh( );
+			scene.add(lineQ);
 
-		animate();
+			refresh();
 
-		function animate() {
+			animate();
 
-			requestAnimationFrame( animate );
-			renderer.render( scene, camera );
-			controls.update();
-			
-		}
+			function animate() {
+				requestAnimationFrame(animate);
+				renderer.render(scene, camera);
+				controls.update();
+			}
 
-		function linesDistance( ) { // mp and mq    non-collinear
-
-			var pq = new THREE.Vector3( ).subVectors( q, p );
-			var n = new THREE.Vector3( ).crossVectors( mp, mq ).normalize( );
-			var d = pq.dot( n );
-			
-			return Math.abs( d );
-			
-		} 
-
-		function closestPointsDet( ) { // mp and mq    non-collinear
-
-			// using determinant
-		 
-		 	var qp = new THREE.Vector3( ).subVectors( p, q );
-			
-			var qpDotmp = qp.dot( mp );
-			var qpDotmq = qp.dot( mq );
-			var mpDotmp = mp.dot( mp );
-			var mqDotmq = mq.dot( mq );
-			var mpDotmq = mp.dot( mq );	
-			
-			var detp = qpDotmp * mqDotmq - qpDotmq * mpDotmq;
-			var detq = qpDotmp * mpDotmq - qpDotmq * mpDotmp;
-			
-			var detm = mpDotmq * mpDotmq - mqDotmq * mpDotmp; 
-			
-			pnDet = p.clone( ).add( mp.clone( ).multiplyScalar( detp / detm ) );
-			qnDet = q.clone( ).add( mq.clone( ).multiplyScalar( detq / detm ) );
-			
-			dpnqnDet = pnDet.clone( ).sub( qnDet ).length( );
+			function linesDistance() { // mp and mq    non-collinear
+				let pq = new THREE.Vector3().subVectors(q, p);
+				let n = new THREE.Vector3().crossVectors(mp, mq).normalize();
+				let d = pq.dot(n);
 				
-		}
+				return Math.abs(d);
+			} 
 
-		function closestPointsCross( ) { // mp and mq    non-collinear
-
-			// using cross vectors
-			
-			var qp = new THREE.Vector3( ).subVectors( p, q );
-			var pq = qp.clone( ).multiplyScalar( -1 );
-			
-			var npq = new THREE.Vector3( ).crossVectors( mp, mq ).normalize( );
-			var nqp = new THREE.Vector3( ).crossVectors( mq, mp ).normalize( );
-			
-			var n1 = new THREE.Vector3( ).crossVectors( mp, nqp ).normalize( );
-			var n2 = new THREE.Vector3( ).crossVectors( mq, npq ).normalize( );
-			
-			var qpDotn1 = qp.dot( n1 );
-			var pqDotn2 = pq.dot( n2 );
-			
-			var mpDotn2 = mp.dot( n2 );
-			var mqDotn1 = mq.dot( n1 );
+			function closestPointsDet() { // mp and mq    non-collinear
+				// using determinant
+			 	let qp = new THREE.Vector3().subVectors(p, q);
 				
-			pnCr = p.clone( ).add( mp.clone( ).multiplyScalar( pqDotn2 / mpDotn2 ) ); 
-			qnCr = q.clone( ).add( mq.clone( ).multiplyScalar( qpDotn1 / mqDotn1 ) ); 
-			
-			dpnqnCr = pnCr.clone( ).sub( qnCr ).length( );
-			
-		}
+				let qpDotmp = qp.dot(mp);
+				let qpDotmq = qp.dot(mq);
+				let mpDotmp = mp.dot(mp);
+				let mqDotmq = mq.dot(mq);
+				let mpDotmq = mp.dot(mq);	
+				
+				let detp = qpDotmp * mqDotmq - qpDotmq * mpDotmq;
+				let detq = qpDotmp * mpDotmq - qpDotmq * mpDotmp;
+				
+				let detm = mpDotmq * mpDotmq - mqDotmq * mpDotmp; 
+				
+				pnDet = p.clone().add(mp.clone().multiplyScalar(detp / detm));
+				qnDet = q.clone().add(mq.clone().multiplyScalar(detq / detm));
+				
+				dpnqnDet = pnDet.clone().sub(qnDet).length();	
+			}
 
-		function refresh( ) { 
-			
-			mp.x = mpx.value * 50;
-			
-			gLineP.positions[ 3 ] = p.x + mp.x;
-			gLineP.attributes.position.needsUpdate = true;
-			
-			closestPointsDet( );	
-			closestPointsCross( );
-			
-			Pn.innerHTML = ' Pn Det ( ' + pnDet.x + ', '+ pnDet.y + ', '+ pnDet.z + ' ) <==> Pn Cr ( ' + pnCr.x + ', '+ pnCr.y + ', '+ pnCr.z + ' ) ';
-			Qn.innerHTML = ' Qn Det ( ' + qnDet.x + ', '+ qnDet.y + ', '+ qnDet.z + ' ) <==> Qn Cr ( ' + qnCr.x + ', '+ qnCr.y + ', '+ qnCr.z + ' ) ';	
-			
-			dist = linesDistance( );	
-			distance.innerHTML = 'distance: dPQ Determinant: ' + dpnqnDet +    '    <==>     function linesDistance( ) :' + dist + '     <==> dPQ Cross: ' + dpnqnCr;
-			
-		}
+			function closestPointsCross() { // mp and mq    non-collinear
+				// using cross vectors
+				let qp = new THREE.Vector3().subVectors(p, q);
+				let pq = qp.clone().multiplyScalar(-1);
+				
+				let npq = new THREE.Vector3().crossVectors(mp, mq).normalize();
+				let nqp = new THREE.Vector3().crossVectors(mq, mp).normalize();
+				
+				let n1 = new THREE.Vector3().crossVectors(mp, nqp).normalize();
+				let n2 = new THREE.Vector3().crossVectors(mq, npq).normalize();
+				
+				let qpDotn1 = qp.dot(n1);
+				let pqDotn2 = pq.dot(n2);
+				
+				let mpDotn2 = mp.dot(n2);
+				let mqDotn1 = mq.dot(n1);
+					
+				pnCr = p.clone().add(mp.clone().multiplyScalar(pqDotn2 / mpDotn2)); 
+				qnCr = q.clone().add(mq.clone().multiplyScalar(qpDotn1 / mqDotn1)); 
+				
+				dpnqnCr = pnCr.clone().sub(qnCr).length();
+			}
+
+			function refresh() { 
+				mp.x = mpx.value * 50;
+				
+				gLineP.positions[3] = p.x + mp.x;
+				gLineP.attributes.position.needsUpdate = true;
+				
+				closestPointsDet();	
+				closestPointsCross();
+				
+				Pn.innerHTML = ' Pn Det (' + pnDet.x + ', '+ pnDet.y + ', '+ pnDet.z + ') <==> Pn Cr (' + pnCr.x + ', '+ pnCr.y + ', '+ pnCr.z + ') ';
+				Qn.innerHTML = ' Qn Det (' + qnDet.x + ', '+ qnDet.y + ', '+ qnDet.z + ') <==> Qn Cr (' + qnCr.x + ', '+ qnCr.y + ', '+ qnCr.z + ') ';	
+				
+				dist = linesDistance();	
+				distance.innerHTML = 'distance: dPQ Determinant: ' + dpnqnDet +    '    <==>     function linesDistance() :' + dist + '     <==> dPQ Cross: ' + dpnqnCr;
+			}
 		</script>
 	</body>
 
