@@ -19,21 +19,23 @@
 			// based on demo by @hofk
 			"use strict";
 
-			function readJson() {
+			function readJson(url, callback) {
 				let xobj = new XMLHttpRequest();
 	            xobj.overrideMimeType("application/json");
-	            xobj.open('GET', animationPath, true);
+	            xobj.open('GET', url, true);
 	            xobj.onreadystatechange = function() {
 	                if (xobj.readyState == 4 && xobj.status == "200") {
-	                    // Required use of an anonymous callback as .open will NOT return a value but simply returns undefined in asynchronous mode
-	                    latk.layers = Latk.jsonToGp(JSON.parse(xobj.responseText));
-	                    console.log("Latk loaded from json.");
-	                    latk.ready = true;
+	                    callback(xobj.responseText);
 	                }
 	            };
 	            xobj.send(null);  
 			}
 
+			readJson("./files/opensfm.json", function(response) {
+				console.log(response);
+	            let json = JSON.parse(response);
+
+			});
 
 			let mpx = document.getElementById('mpx');
 			mpx.onchange = refresh;
