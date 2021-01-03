@@ -19,48 +19,34 @@
 			// based on demo by @hofk
 			"use strict";
 
-			function readJson(url, callback) {
-				let xobj = new XMLHttpRequest();
-	            xobj.overrideMimeType("application/json");
-	            xobj.open('GET', url, true);
-	            xobj.onreadystatechange = function() {
-	                if (xobj.readyState == 4 && xobj.status == "200") {
-	                    callback(xobj.responseText);
-	                }
-	            };
-	            xobj.send(null);  
-			}
-
-			function randomColorString() {
-				let base = 192;
-				let rand = 255 - base;
-				let r = parseInt(base + Math.random() * rand);
-				let g = parseInt(base + Math.random() * rand);
-				let b = parseInt(base + Math.random() * rand);
-				return "rgb(" + r + "," + g + "," + b + ")"
-			}
-
-			const scale = 20;
+			const SPHERE_SCALE = 0.3;
+			const CAMERA_SCALE = 20;
+			let eyes = [];
+			let ready = false;
+			let firstRun = true;
 
 			class Eye {
 
 				constructor(_name, _position, _rotation, _width, _height, _focal, _k1, _k2) {
 					this.name = _name;
 
-					this.position = _position.multiplyScalar(scale);
+					this.position = _position.multiplyScalar(CAMERA_SCALE);
 					this.rotation = _rotation;
 					this.width = _width;
 					this.height = _height;
+					this.planeWidth = CAMERA_SCALE;
+					this.planeHeight = CAMERA_SCALE;
 					this.focal = _focal;
 					this.k1 = _k1;
 					this.k2 = _k2;
 
-					this.color = randomColorString();
+					this.color = this.randomColorString();
+					this.highlight = "rgb(" + 255 + "," + this.color.g + "," + this.color.b + ")"
 					
-					let planePos = new THREE.Vector3(0,-scale*3,0);
+					let planePos = new THREE.Vector3(0,-CAMERA_SCALE*3,0);
 					this.plane = this.createPlane(planePos);
 
-					let geo = new THREE.ConeGeometry(scale/6, scale/3, 4);
+					let geo = new THREE.ConeGeometry(CAMERA_SCALE/6, CAMERA_SCALE/3, 4);
 					geo.rotateY(Math.PI/4);
 					let mtl = new THREE.MeshBasicMaterial({color: this.color});
 					this.cone = new THREE.Mesh(geo, mtl);
@@ -83,14 +69,14 @@
 				}
 
 				createPlane(pos) {
-					let scaleX = scale;
-					let scaleY = scale;
+					this.planeWidth = CAMERA_SCALE;
+					this.planeHeight = CAMERA_SCALE;
 					if (this.width > this.height) {
-						scaleX = (this.width/this.height) * scale;
+						this.planeWidth = (this.width/this.height) * CAMERA_SCALE;
 					} else if (this.height > this.width) {
-						scaleY = (this.height/this.width) * scale;
+						this.planeHeight = (this.height/this.width) * CAMERA_SCALE;
 					}
-					let geo = new THREE.PlaneGeometry(scaleX, scaleY, 1);
+					let geo = new THREE.PlaneGeometry(this.planeWidth, this.planeHeight, 1);
 					geo.rotateX(Math.PI/2);
 					let mtl = new THREE.MeshBasicMaterial({color: this.color, side: THREE.DoubleSide});
 					let plane = new THREE.Mesh(geo, mtl);
@@ -117,10 +103,39 @@
 					return line;
 				}
 
+				addPoint(x, y) {
+					let sphere_geo = new THREE.SphereGeometry(SPHERE_SCALE, 4, 2);
+					let sphere_mtl = new THREE.MeshBasicMaterial({color: 0xff0000});
+					let sphere = new THREE.Mesh(sphere_geo, sphere_mtl);
+					sphere.position.set(x, 0, y);
+					this.plane.add(sphere);
+				}
+
+
+				randomColorString() {
+					let base = 192;
+					let rand = 255 - base;
+					let r = parseInt(base + Math.random() * rand);
+					let g = parseInt(base + Math.random() * rand);
+					let b = parseInt(base + Math.random() * rand);
+					return "rgb(" + r + "," + g + "," + b + ")"
+				}
+
 			}
 
-			let eyes = [];
-			let ready = false;
+			function readJson(url, callback) {
+				let xobj = new XMLHttpRequest();
+	            xobj.overrideMimeType("application/json");
+	            xobj.open('GET', url, true);
+	            xobj.onreadystatechange = function() {
+	                if (xobj.readyState == 4 && xobj.status == "200") {
+	                    callback(xobj.responseText);
+	                }
+	            };
+	            xobj.send(null);  
+			}
+
+			// ~ ~ ~ ~ ~ ~ ~ 
 
 			readJson("./files/opensfm.json", function(response) {
 	            let json = JSON.parse(response)[0];
@@ -153,98 +168,6 @@
 
 	            ready = true;
 			});
-
-			let mpx = document.getElementById('mpx');
-			mpx.onchange = refresh;
-
-			let dpnqnDet, pnDet, qnDet; // uses determinant
-			let dpnqnCr, pnCr, qnCr; // uses cross vectors
-			let dist; // uses formula distance
-
-			let scene = new THREE.Scene();
-			let camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
-			camera.position.set(0, 10, 40);
-			let renderer = new THREE.WebGLRenderer({ antialias: true });
-			renderer.setSize(window.innerWidth, window.innerHeight);
-			renderer.setClearColor(0xaaaaaa, 1);	
-			let container = document.createElement('div');
-			document.body.appendChild(container);
-			container.appendChild(renderer.domElement); 
-			let controls = new THREE.OrbitControls(camera, renderer.domElement);
-
-			let axesHelper = new THREE.AxesHelper(28);
-			scene.add(axesHelper);
-			let grid = new THREE.GridHelper(50, 50);
-			scene.add(grid);
-
-			const sphereScale = 0.3;
-			let sphereR_geo = new THREE.SphereGeometry();
-			let sphereG_geo = new THREE.SphereGeometry();
-			let sphereB_geo = new THREE.SphereGeometry();
-			let sphereR_mtl = new THREE.MeshBasicMaterial({color: 0xff0000});
-			let sphereG_mtl = new THREE.MeshBasicMaterial({color: 0x00ff00});
-			let sphereB_mtl = new THREE.MeshBasicMaterial({color: 0x0000ff});
-			let sphereR = new THREE.Mesh(sphereR_geo, sphereR_mtl);
-			let sphereG = new THREE.Mesh(sphereG_geo, sphereG_mtl);
-			let sphereB = new THREE.Mesh(sphereB_geo, sphereB_mtl);
-			sphereR.scale.set(sphereScale, sphereScale, sphereScale);
-			sphereG.scale.set(sphereScale, sphereScale, sphereScale);
-			sphereB.scale.set(sphereScale, sphereScale, sphereScale);
-			scene.add(sphereR);
-			scene.add(sphereG);
-			scene.add(sphereB);
-
-			let gLineP = new THREE.BufferGeometry();
-			gLineP.positions = new Float32Array(6);
-			gLineP.setAttribute('position', new THREE.BufferAttribute(gLineP.positions, 3).setDynamic(true));
-			let lineP = new THREE.Line(gLineP, new THREE.LineBasicMaterial({ color: 0x00ffff, side: THREE.DoubleSide }));
-
-			let p = new THREE.Vector3(-15, 12, -5);
-			let mp = new THREE.Vector3(35, -8 , 15); // mp.x can be changed with slider
-
-			gLineP.positions[0] = p.x;
-			gLineP.positions[1] = p.y;
-			gLineP.positions[2] = p.z;
-
-			gLineP.positions[3] = p.x + mp.x;
-			gLineP.positions[4] = p.y + mp.y;
-			gLineP.positions[5] = p.z + mp.z;
-
-			scene.add(lineP);
-
-			let gLineQ = new THREE.BufferGeometry();
-			gLineQ.positions = new Float32Array(6);
-			gLineQ.setAttribute('position', new THREE.BufferAttribute(gLineQ.positions, 3));
-			let lineQ = new THREE.Line(gLineQ, new THREE.LineBasicMaterial({ color: 0xffff00, side: THREE.DoubleSide }));
-			let q = new THREE.Vector3(-12, 14, -15);
-			let mq = new THREE.Vector3(34, -12, 33);
-
-			gLineQ.positions[0] = q.x;
-			gLineQ.positions[1] = q.y;
-			gLineQ.positions[2] = q.z;
-
-			gLineQ.positions[3] = q.x + mq.x;
-			gLineQ.positions[4] = q.y + mq.y;
-			gLineQ.positions[5] = q.z + mq.z;
-
-			scene.add(lineQ);
-
-			refresh();
-
-			animate();
-
-			function animate() {
-				requestAnimationFrame(animate);
-				renderer.render(scene, camera);
-				controls.update();
-
-				if (ready) {
-					for (let eye of eyes) {
-						scene.add(eye.cone);
-					}
-					ready = false;
-				}
-			}
 
 			function linesDistance() { // mp and mq    non-collinear
 				let pq = new THREE.Vector3().subVectors(q, p);
@@ -302,7 +225,7 @@
 				sphereG.position.set(pnCr.x, pnCr.y, pnCr.z);		
 			}
 
-			function refresh() { 
+			function calculateCross() { 
 				mp.x = mpx.value * 50;
 				
 				gLineP.positions[3] = p.x + mp.x;
@@ -321,6 +244,102 @@
 				dist = linesDistance();	
 				distance.innerHTML = 'distance: dPQ Determinant: ' + dpnqnDet +    '    <==>     function linesDistance() :' + dist + '     <==> dPQ Cross: ' + dpnqnCr;
 			}
+
+			function animate() {
+				requestAnimationFrame(animate);
+				renderer.render(scene, camera);
+				controls.update();
+
+				if (ready) {
+					if (firstRun) {
+						for (let eye of eyes) {
+							scene.add(eye.cone);
+						}
+						firstRun = false;
+					}	
+
+					for (let eye of eyes) {
+						let pw = eye.planeWidth;
+						let ph = eye.planeHeight;
+						eye.addPoint(Math.random() * pw - pw/2, Math.random() * ph - ph/2);
+					}
+				}
+			}
+
+			let mpx = document.getElementById('mpx');
+			mpx.onchange = calculateCross;
+
+			let dpnqnDet, pnDet, qnDet; // uses determinant
+			let dpnqnCr, pnCr, qnCr; // uses cross vectors
+			let dist; // uses formula distance
+
+			let scene = new THREE.Scene();
+			let camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+			camera.position.set(0, 10, 40);
+			let renderer = new THREE.WebGLRenderer({ antialias: true });
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			renderer.setClearColor(0xaaaaaa, 1);	
+			let container = document.createElement('div');
+			document.body.appendChild(container);
+			container.appendChild(renderer.domElement); 
+			let controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+			let axesHelper = new THREE.AxesHelper(28);
+			scene.add(axesHelper);
+			let grid = new THREE.GridHelper(50, 50);
+			scene.add(grid);
+
+			let sphereR_geo = new THREE.SphereGeometry(SPHERE_SCALE, 3, 2);
+			let sphereG_geo = new THREE.SphereGeometry(SPHERE_SCALE, 3, 2);
+			let sphereB_geo = new THREE.SphereGeometry(SPHERE_SCALE, 3, 2);
+			let sphereR_mtl = new THREE.MeshBasicMaterial({color: 0xff0000});
+			let sphereG_mtl = new THREE.MeshBasicMaterial({color: 0x00ff00});
+			let sphereB_mtl = new THREE.MeshBasicMaterial({color: 0x0000ff});
+			let sphereR = new THREE.Mesh(sphereR_geo, sphereR_mtl);
+			let sphereG = new THREE.Mesh(sphereG_geo, sphereG_mtl);
+			let sphereB = new THREE.Mesh(sphereB_geo, sphereB_mtl);
+			scene.add(sphereR);
+			scene.add(sphereG);
+			scene.add(sphereB);
+
+			let gLineP = new THREE.BufferGeometry();
+			gLineP.positions = new Float32Array(6);
+			gLineP.setAttribute('position', new THREE.BufferAttribute(gLineP.positions, 3).setDynamic(true));
+			let lineP = new THREE.Line(gLineP, new THREE.LineBasicMaterial({ color: 0x00ffff, side: THREE.DoubleSide }));
+
+			let p = new THREE.Vector3(-15, 12, -5);
+			let mp = new THREE.Vector3(35, -8 , 15); // mp.x can be changed with slider
+
+			gLineP.positions[0] = p.x;
+			gLineP.positions[1] = p.y;
+			gLineP.positions[2] = p.z;
+
+			gLineP.positions[3] = p.x + mp.x;
+			gLineP.positions[4] = p.y + mp.y;
+			gLineP.positions[5] = p.z + mp.z;
+
+			scene.add(lineP);
+
+			let gLineQ = new THREE.BufferGeometry();
+			gLineQ.positions = new Float32Array(6);
+			gLineQ.setAttribute('position', new THREE.BufferAttribute(gLineQ.positions, 3));
+			let lineQ = new THREE.Line(gLineQ, new THREE.LineBasicMaterial({ color: 0xffff00, side: THREE.DoubleSide }));
+			let q = new THREE.Vector3(-12, 14, -15);
+			let mq = new THREE.Vector3(34, -12, 33);
+
+			gLineQ.positions[0] = q.x;
+			gLineQ.positions[1] = q.y;
+			gLineQ.positions[2] = q.z;
+
+			gLineQ.positions[3] = q.x + mq.x;
+			gLineQ.positions[4] = q.y + mq.y;
+			gLineQ.positions[5] = q.z + mq.z;
+
+			scene.add(lineQ);
+
+			calculateCross();
+
+			animate();
 		</script>
 	</body>
 
