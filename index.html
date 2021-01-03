@@ -21,6 +21,8 @@
 
 			const SPHERE_SCALE = 0.3;
 			const CAMERA_SCALE = 20;
+			const PLANE_SCALE = 40;
+			const PLANE_DISTANCE = 80;
 
 			function readJson(url, callback) {
 				let xobj = new XMLHttpRequest();
@@ -43,8 +45,10 @@
 					this.rotation = _rotation;
 					this.width = _width;
 					this.height = _height;
-					this.planeWidth = CAMERA_SCALE;
-					this.planeHeight = CAMERA_SCALE;
+					this.planeWidth = PLANE_SCALE;
+					this.planeHeight = PLANE_SCALE;
+					
+					// TODO use these to calculate plane
 					this.focal = _focal;
 					this.k1 = _k1;
 					this.k2 = _k2;
@@ -58,7 +62,7 @@
 					this.highlight.g *= 0.5;
 					this.highlight.b *= 0.5;
 
-					let planePos = new THREE.Vector3(0,-CAMERA_SCALE*3,0);
+					let planePos = new THREE.Vector3(0,-PLANE_DISTANCE,0);
 					this.plane = this.createPlane(planePos);
 
 					let geo = new THREE.ConeGeometry(CAMERA_SCALE/6, CAMERA_SCALE/3, 4);
@@ -86,12 +90,12 @@
 				}
 
 				createPlane(pos) {
-					this.planeWidth = CAMERA_SCALE;
-					this.planeHeight = CAMERA_SCALE;
+					this.planeWidth = PLANE_SCALE;
+					this.planeHeight = PLANE_SCALE;
 					if (this.width > this.height) {
-						this.planeWidth = (this.width/this.height) * CAMERA_SCALE;
+						this.planeWidth = (this.width/this.height) * PLANE_SCALE;
 					} else if (this.height > this.width) {
-						this.planeHeight = (this.height/this.width) * CAMERA_SCALE;
+						this.planeHeight = (this.height/this.width) * PLANE_SCALE;
 					}
 					let geo = new THREE.PlaneGeometry(this.planeWidth, this.planeHeight, 1);
 					geo.rotateX(Math.PI/2);
@@ -164,6 +168,9 @@
 				constructor() {
 					this.sphere_scale = SPHERE_SCALE;
 					this.camera_scale = CAMERA_SCALE;
+					this.plane_scale = PLANE_SCALE;
+					this.plane_distance = PLANE_DISTANCE;
+
 					this.eyes = [];
 				}
 
