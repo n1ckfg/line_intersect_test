@@ -19,22 +19,10 @@
 			// based on demo by @hofk
 			"use strict";
 
-			const SPHERE_SCALE = 0.3;
+			const SPHERE_SCALE = 0.5;
 			const CAMERA_SCALE = 20;
 			const PLANE_SCALE = 40;
 			const PLANE_DISTANCE = 80;
-
-			function readJson(url, callback) {
-				let xobj = new XMLHttpRequest();
-	            xobj.overrideMimeType("application/json");
-	            xobj.open('GET', url, true);
-	            xobj.onreadystatechange = function() {
-	                if (xobj.readyState == 4 && xobj.status == "200") {
-	                    callback(xobj.responseText);
-	                }
-	            };
-	            xobj.send(null);  
-			}
 
 			class Eye {
 
@@ -55,7 +43,7 @@
 
 					this.origin;
 
-					this.color = this.randomColorString();
+					this.color = Volume.randomColorString();
 					this.highlight = new THREE.Color(0,0,0);
 					this.highlight.setStyle(this.color);
 					this.highlight.r = 1;
@@ -65,18 +53,27 @@
 					let planePos = new THREE.Vector3(0,-PLANE_DISTANCE,0);
 					this.plane = this.createPlane(planePos);
 
-					let geo = new THREE.ConeGeometry(CAMERA_SCALE/6, CAMERA_SCALE/3, 4);
-					geo.rotateY(Math.PI/4);
-					let mtl = new THREE.MeshBasicMaterial({color: this.color});
-					this.cone = new THREE.Mesh(geo, mtl);
+					let planeEdges = new THREE.EdgesGeometry(this.plane.geometry);
+					let planeEdgeLine = new THREE.LineSegments(planeEdges, new THREE.LineBasicMaterial({ color: 0xffffff }));
+					this.plane.add(planeEdgeLine);
+
+					let coneGeo = new THREE.ConeGeometry(CAMERA_SCALE/6, CAMERA_SCALE/3, 4);
+					coneGeo.rotateY(Math.PI/4);
+					let coneMtl = new THREE.MeshBasicMaterial({color: this.color});
+					this.cone = new THREE.Mesh(coneGeo, coneMtl);
+
+					let coneEdges = new THREE.EdgesGeometry(coneGeo);
+					let coneEdgeLine = new THREE.LineSegments(coneEdges, new THREE.LineBasicMaterial({ color: 0x000000 }));
+					this.cone.add(coneEdgeLine);
+
 					this.cone.add(this.plane);
 
 					this.origin = this.cone.geometry.vertices[0];
 
-					let pointLine1 = this.createLine(this.cone.geometry.vertices[1], planePos.clone().add(this.plane.geometry.vertices[1]).sub(this.cone.geometry.vertices[1]), this.color);
-					let pointLine2 = this.createLine(this.cone.geometry.vertices[2], planePos.clone().add(this.plane.geometry.vertices[3]).sub(this.cone.geometry.vertices[2]), this.color);
-					let pointLine3 = this.createLine(this.cone.geometry.vertices[3], planePos.clone().add(this.plane.geometry.vertices[2]).sub(this.cone.geometry.vertices[3]), this.color);
-					let pointLine4 = this.createLine(this.cone.geometry.vertices[4], planePos.clone().add(this.plane.geometry.vertices[0]).sub(this.cone.geometry.vertices[4]), this.color);
+					let pointLine1 = Volume.createLine(this.cone.geometry.vertices[1], planePos.clone().add(this.plane.geometry.vertices[1]).sub(this.cone.geometry.vertices[1]), this.color);
+					let pointLine2 = Volume.createLine(this.cone.geometry.vertices[2], planePos.clone().add(this.plane.geometry.vertices[3]).sub(this.cone.geometry.vertices[2]), this.color);
+					let pointLine3 = Volume.createLine(this.cone.geometry.vertices[3], planePos.clone().add(this.plane.geometry.vertices[2]).sub(this.cone.geometry.vertices[3]), this.color);
+					let pointLine4 = Volume.createLine(this.cone.geometry.vertices[4], planePos.clone().add(this.plane.geometry.vertices[0]).sub(this.cone.geometry.vertices[4]), this.color);
 					
 					this.cone.add(pointLine1);
 					this.cone.add(pointLine2);
@@ -105,7 +102,121 @@
 					return plane;
 				}
 
-				createLine(start, end, color) {
+				update() {
+					Volume.clearObj(this.plane);
+
+					let x = Math.random() * this.planeWidth - this.planeWidth/2;
+					let y = Math.random() * this.planeHeight - this.planeHeight/2;
+					let point = Volume.createPoint(x, y, this.highlight);
+					this.points = [];
+					this.points.push(point);
+
+					for (let point of this.points) {
+						let start = this.origin.clone();
+						let end = this.plane.position.clone().add(point.position).sub(this.origin);
+						start.y -= this.plane.position.y;
+
+						let line = Volume.createLine(start, end, this.highlight);
+						this.plane.add(line);
+						this.plane.add(point);
+					}
+				}
+
+			}
+
+			class Volume {
+
+				constructor(url) {
+					this.sphere_scale = SPHERE_SCALE;
+					this.camera_scale = CAMERA_SCALE;
+					this.plane_scale = PLANE_SCALE;
+					this.plane_distance = PLANE_DISTANCE;
+
+					this.eyes = [];
+
+					Volume.readJson(url, function(response) {
+			            let json = JSON.parse(response)[0];
+
+			            for (let el in json["shots"]) {
+			            	let name = el.split("_")[0];
+			            	let eyeEl = json["shots"][el];
+
+			            	let px = eyeEl.translation[0];
+			            	let py = eyeEl.translation[1];
+			            	let pz = eyeEl.translation[2];
+				           	let position = new THREE.Vector3(px, py, pz);
+
+			            	let rx = eyeEl.rotation[0];
+			            	let ry = eyeEl.rotation[1];
+			            	let rz = eyeEl.rotation[2];
+			         		let rotation = new THREE.Vector3(rx, ry, rz);
+
+							let eyeElCamera = json["cameras"][eyeEl["camera"]];
+							let width = eyeElCamera.width;
+							let height = eyeElCamera.height;
+							let focal = eyeElCamera.focal;
+							let k1 = eyeElCamera.k1;
+							let k2 = eyeElCamera.k2;
+
+							let eye = new Eye(name, position, rotation, width, height, focal, k1, k2);
+							console.log("Created eye " + name);
+							volume.eyes.push(eye);	
+
+							scene.add(eye.cone);            	
+			            }
+					});
+				}
+
+				update() {
+					for (let eye of this.eyes) {
+						eye.update();
+					}
+				}
+
+				static clearObj(obj) {
+				    while (obj.children.length > 0) { 
+				        Volume.clearObj(obj.children[0]);
+				        obj.remove(obj.children[0]);
+				    }
+				    
+				    if (obj.geometry) obj.geometry.dispose();
+
+				    if (obj.material) { 
+				        // in case of map, bumpMap, normalMap, envMap ...
+				        Object.keys(obj.material).forEach(prop => {
+				            if (!obj.material[prop]) {
+				                return;         
+				            }
+				            if (obj.material[prop] !== null && typeof obj.material[prop].dispose === 'function') {
+				                obj.material[prop].dispose();
+				            }                                                  
+				        });
+				        obj.material.dispose();
+				    }
+				} 
+
+				static readJson(url, callback) {
+					let xobj = new XMLHttpRequest();
+		            xobj.overrideMimeType("application/json");
+		            xobj.open('GET', url, true);
+		            xobj.onreadystatechange = function() {
+		                if (xobj.readyState == 4 && xobj.status == "200") {
+		                    callback(xobj.responseText);
+		                }
+		            };
+		            xobj.send(null);  
+				}
+
+				static randomColorString() {
+					let base = 192;
+					let rand = 255 - base;
+					let r = parseInt(base + Math.random() * rand);
+					let g = parseInt(base + Math.random() * rand);
+					let b = parseInt(base + Math.random() * rand);
+					return "rgb(" + r + "," + g + "," + b + ")"
+				}
+
+				static createLine(start, end, color) {
 					let geo = new THREE.BufferGeometry();
 					geo.positions = new Float32Array(6);
 					geo.setAttribute("position", new THREE.BufferAttribute(geo.positions, 3));
@@ -124,60 +235,13 @@
 					return line;
 				}
 
-				createPoint(x, y) {
-					this.points = [];
+				static createPoint(x, y, color) {
 					let sphere_geo = new THREE.SphereGeometry(SPHERE_SCALE, 4, 2);
-					let sphere_mtl = new THREE.MeshBasicMaterial({color: this.highlight});
+					let sphere_mtl = new THREE.MeshBasicMaterial({color: color});
 					let sphere = new THREE.Mesh(sphere_geo, sphere_mtl);
 					sphere.position.set(x, 0, y);
-					this.points.push(sphere);
-				}
 
-
-				randomColorString() {
-					let base = 192;
-					let rand = 255 - base;
-					let r = parseInt(base + Math.random() * rand);
-					let g = parseInt(base + Math.random() * rand);
-					let b = parseInt(base + Math.random() * rand);
-					return "rgb(" + r + "," + g + "," + b + ")"
-				}
-
-				update() {
-					clearObj(this.plane);
-
-					let x = Math.random() * this.planeWidth - this.planeWidth/2;
-					let y = Math.random() * this.planeHeight - this.planeHeight/2;
-					this.createPoint(x, y);
-
-					for (let point of this.points) {
-						let start = this.origin.clone();
-						let end = this.plane.position.clone().add(point.position).sub(this.origin);
-						start.y -= this.plane.position.y;
-
-						let line = this.createLine(start, end, this.highlight);
-						this.plane.add(line);
-						this.plane.add(point);
-					}
-				}
-
-			}
-
-			class Volume {
-
-				constructor() {
-					this.sphere_scale = SPHERE_SCALE;
-					this.camera_scale = CAMERA_SCALE;
-					this.plane_scale = PLANE_SCALE;
-					this.plane_distance = PLANE_DISTANCE;
-
-					this.eyes = [];
-				}
-
-				update() {
-					for (let eye of this.eyes) {
-						eye.update();
-					}
+					return sphere;
 				}
 
 			}
@@ -259,64 +323,10 @@
 				distance.innerHTML = 'distance: dPQ Determinant: ' + dpnqnDet +    '    <==>     function linesDistance() :' + dist + '     <==> dPQ Cross: ' + dpnqnCr;
 			}
 
-			function clearObj(obj) {
-			    while (obj.children.length > 0) { 
-			        clearObj(obj.children[0]);
-			        obj.remove(obj.children[0]);
-			    }
-			    
-			    if (obj.geometry) obj.geometry.dispose();
-
-			    if (obj.material) { 
-			        // in case of map, bumpMap, normalMap, envMap ...
-			        Object.keys(obj.material).forEach(prop => {
-			            if (!obj.material[prop]) {
-			                return;         
-			            }
-			            if (obj.material[prop] !== null && typeof obj.material[prop].dispose === 'function') {
-			                obj.material[prop].dispose();
-			            }                                                  
-			        });
-			        obj.material.dispose();
-			    }
-			} 
-
 			let volume;
 
 			function setup() {
-				volume = new Volume();
-
-				readJson("./files/opensfm.json", function(response) {
-		            let json = JSON.parse(response)[0];
-
-		            for (let el in json["shots"]) {
-		            	let name = el.split("_")[0];
-		            	let eyeEl = json["shots"][el];
-
-		            	let px = eyeEl.translation[0];
-		            	let py = eyeEl.translation[1];
-		            	let pz = eyeEl.translation[2];
-			           	let position = new THREE.Vector3(px, py, pz);
-
-		            	let rx = eyeEl.rotation[0];
-		            	let ry = eyeEl.rotation[1];
-		            	let rz = eyeEl.rotation[2];
-		         		let rotation = new THREE.Vector3(rx, ry, rz);
-
-						let eyeElCamera = json["cameras"][eyeEl["camera"]];
-						let width = eyeElCamera.width;
-						let height = eyeElCamera.height;
-						let focal = eyeElCamera.focal;
-						let k1 = eyeElCamera.k1;
-						let k2 = eyeElCamera.k2;
-
-						let eye = new Eye(name, position, rotation, width, height, focal, k1, k2);
-						console.log("Created eye " + name);
-						volume.eyes.push(eye);	
-
-						scene.add(eye.cone);            	
-		            }
-				});
+				volume = new Volume("./files/opensfm.json");
 
 				window.addEventListener("resize", function(event) {
 				    const width = window.innerWidth;
