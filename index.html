@@ -23,7 +23,6 @@
 			const CAMERA_SCALE = 20;
 			let eyes = [];
 			let ready = false;
-			let firstRun = true;
 
 			class Eye {
 
@@ -40,9 +39,15 @@
 					this.k1 = _k1;
 					this.k2 = _k2;
 
+					this.origin;
+
 					this.color = this.randomColorString();
-					this.highlight = "rgb(" + 255 + "," + this.color.g + "," + this.color.b + ")"
-					
+					this.highlight = new THREE.Color(0,0,0);
+					this.highlight.setStyle(this.color);
+					this.highlight.r = 1;
+					this.highlight.g *= 0.5;
+					this.highlight.b *= 0.5;
+
 					let planePos = new THREE.Vector3(0,-CAMERA_SCALE*3,0);
 					this.plane = this.createPlane(planePos);
 
@@ -52,10 +57,12 @@
 					this.cone = new THREE.Mesh(geo, mtl);
 					this.cone.add(this.plane);
 
-					let pointLine1 = this.createLine(this.cone.geometry.vertices[1], planePos.clone().add(this.plane.geometry.vertices[1]).sub(this.cone.geometry.vertices[1]));
-					let pointLine2 = this.createLine(this.cone.geometry.vertices[2], planePos.clone().add(this.plane.geometry.vertices[3]).sub(this.cone.geometry.vertices[2]));
-					let pointLine3 = this.createLine(this.cone.geometry.vertices[3], planePos.clone().add(this.plane.geometry.vertices[2]).sub(this.cone.geometry.vertices[3]));
-					let pointLine4 = this.createLine(this.cone.geometry.vertices[4], planePos.clone().add(this.plane.geometry.vertices[0]).sub(this.cone.geometry.vertices[4]));
+					this.origin = this.cone.geometry.vertices[0];
+
+					let pointLine1 = this.createLine(this.cone.geometry.vertices[1], planePos.clone().add(this.plane.geometry.vertices[1]).sub(this.cone.geometry.vertices[1]), this.color);
+					let pointLine2 = this.createLine(this.cone.geometry.vertices[2], planePos.clone().add(this.plane.geometry.vertices[3]).sub(this.cone.geometry.vertices[2]), this.color);
+					let pointLine3 = this.createLine(this.cone.geometry.vertices[3], planePos.clone().add(this.plane.geometry.vertices[2]).sub(this.cone.geometry.vertices[3]), this.color);
+					let pointLine4 = this.createLine(this.cone.geometry.vertices[4], planePos.clone().add(this.plane.geometry.vertices[0]).sub(this.cone.geometry.vertices[4]), this.color);
 					
 					this.cone.add(pointLine1);
 					this.cone.add(pointLine2);
@@ -84,11 +91,11 @@
 					return plane;
 				}
 
-				createLine(start, end) {
+				createLine(start, end, color) {
 					let geo = new THREE.BufferGeometry();
 					geo.positions = new Float32Array(6);
 					geo.setAttribute("position", new THREE.BufferAttribute(geo.positions, 3));
-					let mtl = new THREE.LineBasicMaterial({ color: this.color, side: THREE.DoubleSide });
+					let mtl = new THREE.LineBasicMaterial({ color: color, side: THREE.DoubleSide });
 					let line = new THREE.Line(geo, mtl);
 					line.position.set(start.x, start.y, start.z);
 
@@ -103,12 +110,13 @@
 					return line;
 				}
 
-				addPoint(x, y) {
+				createPoint(x, y) {
+					this.points = [];
 					let sphere_geo = new THREE.SphereGeometry(SPHERE_SCALE, 4, 2);
-					let sphere_mtl = new THREE.MeshBasicMaterial({color: 0xff0000});
+					let sphere_mtl = new THREE.MeshBasicMaterial({color: this.highlight});
 					let sphere = new THREE.Mesh(sphere_geo, sphere_mtl);
 					sphere.position.set(x, 0, y);
-					this.plane.add(sphere);
+					this.points.push(sphere);
 				}
 
 
@@ -121,7 +129,27 @@
 					return "rgb(" + r + "," + g + "," + b + ")"
 				}
 
+				update() {
+					clearObj(this.plane);
+
+					let x = Math.random() * this.planeWidth - this.planeWidth/2;
+					let y = Math.random() * this.planeHeight - this.planeHeight/2;
+					this.createPoint(x, y);
+
+					for (let point of this.points) {
+						let start = this.origin.clone();
+						let end = this.plane.position.clone().add(point.position).sub(this.origin);
+						start.y -= this.plane.position.y;
+
+						let line = this.createLine(start, end, this.highlight);
+						this.plane.add(line);
+						this.plane.add(point);
+					}
+				}
+
 			}
+
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
 
 			function readJson(url, callback) {
 				let xobj = new XMLHttpRequest();
@@ -134,40 +162,6 @@
 	            };
 	            xobj.send(null);  
 			}
-
-			// ~ ~ ~ ~ ~ ~ ~ 
-
-			readJson("./files/opensfm.json", function(response) {
-	            let json = JSON.parse(response)[0];
-
-	            for (let el in json["shots"]) {
-	            	let name = el.split("_")[0];
-	            	let eyeEl = json["shots"][el];
-
-	            	let px = eyeEl.translation[0];
-	            	let py = eyeEl.translation[1];
-	            	let pz = eyeEl.translation[2];
-		           	let position = new THREE.Vector3(px, py, pz);
-
-	            	let rx = eyeEl.rotation[0];
-	            	let ry = eyeEl.rotation[1];
-	            	let rz = eyeEl.rotation[2];
-	         		let rotation = new THREE.Vector3(rx, ry, rz);
-
-					let eyeElCamera = json["cameras"][eyeEl["camera"]];
-					let width = eyeElCamera.width;
-					let height = eyeElCamera.height;
-					let focal = eyeElCamera.focal;
-					let k1 = eyeElCamera.k1;
-					let k2 = eyeElCamera.k2;
-
-					let eye = new Eye(name, position, rotation, width, height, focal, k1, k2);
-					console.log("Created eye " + name);
-					eyes.push(eye);	            	
-	            }
-
-	            ready = true;
-			});
 
 			function linesDistance() { // mp and mq    non-collinear
 				let pq = new THREE.Vector3().subVectors(q, p);
@@ -245,26 +239,89 @@
 				distance.innerHTML = 'distance: dPQ Determinant: ' + dpnqnDet +    '    <==>     function linesDistance() :' + dist + '     <==> dPQ Cross: ' + dpnqnCr;
 			}
 
+			function clearObj(obj) {
+			    while (obj.children.length > 0) { 
+			        clearObj(obj.children[0]);
+			        obj.remove(obj.children[0]);
+			    }
+			    
+			    if (obj.geometry) obj.geometry.dispose();
+
+			    if (obj.material) { 
+			        // in case of map, bumpMap, normalMap, envMap ...
+			        Object.keys(obj.material).forEach(prop => {
+			            if (!obj.material[prop]) {
+			                return;         
+			            }
+			            if (obj.material[prop] !== null && typeof obj.material[prop].dispose === 'function') {
+			                obj.material[prop].dispose();
+			            }                                                  
+			        });
+			        obj.material.dispose();
+			    }
+			} 
+
 			function animate() {
 				requestAnimationFrame(animate);
 				renderer.render(scene, camera);
 				controls.update();
 
 				if (ready) {
-					if (firstRun) {
-						for (let eye of eyes) {
-							scene.add(eye.cone);
-						}
-						firstRun = false;
-					}	
-
 					for (let eye of eyes) {
-						let pw = eye.planeWidth;
-						let ph = eye.planeHeight;
-						eye.addPoint(Math.random() * pw - pw/2, Math.random() * ph - ph/2);
+						scene.add(eye.cone);
 					}
+					ready = false;
+				}
+
+				for (let eye of eyes) {
+					eye.update();
 				}
 			}
+
+			window.addEventListener("resize", function(event) {
+			    const width = window.innerWidth;
+			    const height = window.innerHeight;
+
+			    camera.aspect = width / height;
+			    camera.updateProjectionMatrix();
+
+			    renderer.setSize( width, height );
+			    //composer.setSize( width, height );
+			}, false);
+
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
+
+			readJson("./files/opensfm.json", function(response) {
+	            let json = JSON.parse(response)[0];
+
+	            for (let el in json["shots"]) {
+	            	let name = el.split("_")[0];
+	            	let eyeEl = json["shots"][el];
+
+	            	let px = eyeEl.translation[0];
+	            	let py = eyeEl.translation[1];
+	            	let pz = eyeEl.translation[2];
+		           	let position = new THREE.Vector3(px, py, pz);
+
+	            	let rx = eyeEl.rotation[0];
+	            	let ry = eyeEl.rotation[1];
+	            	let rz = eyeEl.rotation[2];
+	         		let rotation = new THREE.Vector3(rx, ry, rz);
+
+					let eyeElCamera = json["cameras"][eyeEl["camera"]];
+					let width = eyeElCamera.width;
+					let height = eyeElCamera.height;
+					let focal = eyeElCamera.focal;
+					let k1 = eyeElCamera.k1;
+					let k2 = eyeElCamera.k2;
+
+					let eye = new Eye(name, position, rotation, width, height, focal, k1, k2);
+					console.log("Created eye " + name);
+					eyes.push(eye);	            	
+	            }
+
+	            ready = true;
+			});
 
 			let mpx = document.getElementById('mpx');
 			mpx.onchange = calculateCross;
@@ -278,7 +335,7 @@
 			camera.position.set(0, 10, 40);
 			let renderer = new THREE.WebGLRenderer({ antialias: true });
 			renderer.setSize(window.innerWidth, window.innerHeight);
-			renderer.setClearColor(0xaaaaaa, 1);	
+			renderer.setClearColor(0x000000, 1);	
 			let container = document.createElement('div');
 			document.body.appendChild(container);
 			container.appendChild(renderer.domElement); 
