@@ -78,7 +78,7 @@
 
 					this.cone.position.set(this.position.x, this.position.y, this.position.z);
 					this.cone.rotation.set(this.rotation.x, this.rotation.y, this.rotation.z);
-					
+
 					this.points = [];
 				}
 
@@ -177,6 +177,23 @@
 			let grid = new THREE.GridHelper(50, 50);
 			scene.add(grid);
 
+			const sphereScale = 0.3;
+			let sphereR_geo = new THREE.SphereGeometry();
+			let sphereG_geo = new THREE.SphereGeometry();
+			let sphereB_geo = new THREE.SphereGeometry();
+			let sphereR_mtl = new THREE.MeshBasicMaterial({color: 0xff0000});
+			let sphereG_mtl = new THREE.MeshBasicMaterial({color: 0x00ff00});
+			let sphereB_mtl = new THREE.MeshBasicMaterial({color: 0x0000ff});
+			let sphereR = new THREE.Mesh(sphereR_geo, sphereR_mtl);
+			let sphereG = new THREE.Mesh(sphereG_geo, sphereG_mtl);
+			let sphereB = new THREE.Mesh(sphereB_geo, sphereB_mtl);
+			sphereR.scale.set(sphereScale, sphereScale, sphereScale);
+			sphereG.scale.set(sphereScale, sphereScale, sphereScale);
+			sphereB.scale.set(sphereScale, sphereScale, sphereScale);
+			scene.add(sphereR);
+			scene.add(sphereG);
+			scene.add(sphereB);
+
 			let gLineP = new THREE.BufferGeometry();
 			gLineP.positions = new Float32Array(6);
 			gLineP.setAttribute('position', new THREE.BufferAttribute(gLineP.positions, 3).setDynamic(true));
@@ -255,7 +272,9 @@
 				pnDet = p.clone().add(mp.clone().multiplyScalar(detp / detm));
 				qnDet = q.clone().add(mq.clone().multiplyScalar(detq / detm));
 				
-				dpnqnDet = pnDet.clone().sub(qnDet).length();	
+				dpnqnDet = pnDet.clone().sub(qnDet).length();
+
+				sphereR.position.set(qnDet.x, qnDet.y, qnDet.z);		
 			}
 
 			function closestPointsCross() { // mp and mq    non-collinear
@@ -279,6 +298,8 @@
 				qnCr = q.clone().add(mq.clone().multiplyScalar(qpDotn1 / mqDotn1)); 
 				
 				dpnqnCr = pnCr.clone().sub(qnCr).length();
+
+				sphereG.position.set(pnCr.x, pnCr.y, pnCr.z);		
 			}
 
 			function refresh() { 
@@ -289,6 +310,10 @@
 				
 				closestPointsDet();	
 				closestPointsCross();
+
+				let finalPos = sphereR.position.clone().add(sphereG.position.clone());
+				finalPos.multiplyScalar(0.5);
+				sphereB.position.set(finalPos.x, finalPos.y, finalPos.z);
 				
 				Pn.innerHTML = ' Pn Det (' + pnDet.x + ', '+ pnDet.y + ', '+ pnDet.z + ') <==> Pn Cr (' + pnCr.x + ', '+ pnCr.y + ', '+ pnCr.z + ') ';
 				Qn.innerHTML = ' Qn Det (' + qnDet.x + ', '+ qnDet.y + ', '+ qnDet.z + ') <==> Qn Cr (' + qnCr.x + ', '+ qnCr.y + ', '+ qnCr.z + ') ';	
