@@ -40,11 +40,13 @@
 				return "rgb(" + r + "," + g + "," + b + ")"
 			}
 
-			const scale = 10;
+			const scale = 20;
 
 			class Eye {
 
-				constructor(_position, _rotation, _width, _height, _focal, _k1, _k2) {
+				constructor(_name, _position, _rotation, _width, _height, _focal, _k1, _k2) {
+					this.name = _name;
+
 					this.position = _position.multiplyScalar(scale);
 					this.rotation = _rotation;
 					this.width = _width;
@@ -54,22 +56,45 @@
 					this.k2 = _k2;
 
 					this.color = randomColorString();
-					this.geometry = new THREE.ConeBufferGeometry( 5, 10, 4 );
-					this.material = new THREE.MeshBasicMaterial( {color: this.color} );
+										
+					this.origin = this.createLine(new THREE.Vector3(0,0,0), new THREE.Vector3(0,-scale*10,0));
+					this.plane = this.createPlane(new THREE.Vector3(0,-scale*2,0));
+
+					this.geometry = new THREE.ConeBufferGeometry(scale/6, scale/3, 4);
+					this.geometry.rotateY(Math.PI/4);
+					this.material = new THREE.MeshBasicMaterial({color: this.color});
 					this.mesh = new THREE.Mesh(this.geometry, this.material);
+
+					this.mesh.add(this.origin);
+					this.mesh.add(this.plane);
+
 					this.mesh.position.set(this.position.x, this.position.y, this.position.z);
 					this.mesh.rotation.set(this.rotation.x, this.rotation.y, this.rotation.z);
 					this.points = [];
-					this.origin = this.createLine(this.position, new THREE.Vector3(0,100,0));
+				}
 
-					scene.add(this.origin);
+				createPlane(pos) {
+					let scaleX = scale;
+					let scaleY = scale;
+					if (this.width > this.height) {
+						scaleX = (this.width/this.height) * scale;
+					} else if (this.height > this.width) {
+						scaleY = (this.height/this.width) * scale;
+					}
+					let geo = new THREE.PlaneGeometry(scaleX, scaleY, 1);
+					geo.rotateX(Math.PI/2);
+					let mtl = new THREE.MeshBasicMaterial({color: this.color, side: THREE.DoubleSide});
+					let plane = new THREE.Mesh(geo, mtl);
+					plane.position.set(pos.x, pos.y, pos.z);
+					return plane;
 				}
 
 				createLine(start, end) {
 					let geo = new THREE.BufferGeometry();
 					geo.positions = new Float32Array(6);
-					geo.setAttribute('position', new THREE.BufferAttribute(geo.positions, 3));
-					let line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: this.color, side: THREE.DoubleSide }));
+					geo.setAttribute("position", new THREE.BufferAttribute(geo.positions, 3));
+					let mtl = new THREE.LineBasicMaterial({ color: this.color, side: THREE.DoubleSide });
+					let line = new THREE.Line(geo, mtl);
 
 					geo.positions[0] = start.x;
 					geo.positions[1] = start.y;
@@ -90,12 +115,10 @@
 			readJson("./files/opensfm.json", function(response) {
 	            let json = JSON.parse(response)[0];
 
-	            let eyeList = [];
 	            for (let el in json["shots"]) {
-	            	eyeList.push(json["shots"][el]);
-	            }
+	            	let name = el.split("_")[0];
+	            	let eyeEl = json["shots"][el];
 
-	            for (let eyeEl of eyeList) {
 	            	let px = eyeEl.translation[0];
 	            	let py = eyeEl.translation[1];
 	            	let pz = eyeEl.translation[2];
@@ -113,7 +136,8 @@
 					let k1 = eyeElCamera.k1;
 					let k2 = eyeElCamera.k2;
 
-					let eye = new Eye(position, rotation, width, height, focal, k1, k2);
+					let eye = new Eye(name, position, rotation, width, height, focal, k1, k2);
+					console.log("Created eye " + name);
 					eyes.push(eye);	            	
 	            }
 
