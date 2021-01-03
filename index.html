@@ -21,8 +21,18 @@
 
 			const SPHERE_SCALE = 0.3;
 			const CAMERA_SCALE = 20;
-			let eyes = [];
-			let ready = false;
+
+			function readJson(url, callback) {
+				let xobj = new XMLHttpRequest();
+	            xobj.overrideMimeType("application/json");
+	            xobj.open('GET', url, true);
+	            xobj.onreadystatechange = function() {
+	                if (xobj.readyState == 4 && xobj.status == "200") {
+	                    callback(xobj.responseText);
+	                }
+	            };
+	            xobj.send(null);  
+			}
 
 			class Eye {
 
@@ -149,19 +159,22 @@
 
 			}
 
-// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
+			class Volume {
 
-			function readJson(url, callback) {
-				let xobj = new XMLHttpRequest();
-	            xobj.overrideMimeType("application/json");
-	            xobj.open('GET', url, true);
-	            xobj.onreadystatechange = function() {
-	                if (xobj.readyState == 4 && xobj.status == "200") {
-	                    callback(xobj.responseText);
-	                }
-	            };
-	            xobj.send(null);  
+				constructor() {
+					this.sphere_scale = SPHERE_SCALE;
+					this.camera_scale = CAMERA_SCALE;
+					this.eyes = [];
+				}
+
+				update() {
+					for (let eye of this.eyes) {
+						eye.update();
+					}
+				}
+
 			}
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
 
 			function linesDistance() { // mp and mq    non-collinear
 				let pq = new THREE.Vector3().subVectors(q, p);
@@ -261,67 +274,66 @@
 			    }
 			} 
 
-			function animate() {
-				requestAnimationFrame(animate);
+			let volume;
+
+			function setup() {
+				volume = new Volume();
+
+				readJson("./files/opensfm.json", function(response) {
+		            let json = JSON.parse(response)[0];
+
+		            for (let el in json["shots"]) {
+		            	let name = el.split("_")[0];
+		            	let eyeEl = json["shots"][el];
+
+		            	let px = eyeEl.translation[0];
+		            	let py = eyeEl.translation[1];
+		            	let pz = eyeEl.translation[2];
+			           	let position = new THREE.Vector3(px, py, pz);
+
+		            	let rx = eyeEl.rotation[0];
+		            	let ry = eyeEl.rotation[1];
+		            	let rz = eyeEl.rotation[2];
+		         		let rotation = new THREE.Vector3(rx, ry, rz);
+
+						let eyeElCamera = json["cameras"][eyeEl["camera"]];
+						let width = eyeElCamera.width;
+						let height = eyeElCamera.height;
+						let focal = eyeElCamera.focal;
+						let k1 = eyeElCamera.k1;
+						let k2 = eyeElCamera.k2;
+
+						let eye = new Eye(name, position, rotation, width, height, focal, k1, k2);
+						console.log("Created eye " + name);
+						volume.eyes.push(eye);	
+
+						scene.add(eye.cone);            	
+		            }
+				});
+
+				window.addEventListener("resize", function(event) {
+				    const width = window.innerWidth;
+				    const height = window.innerHeight;
+
+				    camera.aspect = width / height;
+				    camera.updateProjectionMatrix();
+
+				    renderer.setSize( width, height );
+				    //composer.setSize( width, height );
+				}, false);
+
+				draw();
+			}
+
+			function draw() {
+				requestAnimationFrame(draw);
 				renderer.render(scene, camera);
 				controls.update();
 
-				if (ready) {
-					for (let eye of eyes) {
-						scene.add(eye.cone);
-					}
-					ready = false;
-				}
-
-				for (let eye of eyes) {
-					eye.update();
-				}
+				volume.update();
 			}
 
-			window.addEventListener("resize", function(event) {
-			    const width = window.innerWidth;
-			    const height = window.innerHeight;
-
-			    camera.aspect = width / height;
-			    camera.updateProjectionMatrix();
-
-			    renderer.setSize( width, height );
-			    //composer.setSize( width, height );
-			}, false);
-
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
-
-			readJson("./files/opensfm.json", function(response) {
-	            let json = JSON.parse(response)[0];
-
-	            for (let el in json["shots"]) {
-	            	let name = el.split("_")[0];
-	            	let eyeEl = json["shots"][el];
-
-	            	let px = eyeEl.translation[0];
-	            	let py = eyeEl.translation[1];
-	            	let pz = eyeEl.translation[2];
-		           	let position = new THREE.Vector3(px, py, pz);
-
-	            	let rx = eyeEl.rotation[0];
-	            	let ry = eyeEl.rotation[1];
-	            	let rz = eyeEl.rotation[2];
-	         		let rotation = new THREE.Vector3(rx, ry, rz);
-
-					let eyeElCamera = json["cameras"][eyeEl["camera"]];
-					let width = eyeElCamera.width;
-					let height = eyeElCamera.height;
-					let focal = eyeElCamera.focal;
-					let k1 = eyeElCamera.k1;
-					let k2 = eyeElCamera.k2;
-
-					let eye = new Eye(name, position, rotation, width, height, focal, k1, k2);
-					console.log("Created eye " + name);
-					eyes.push(eye);	            	
-	            }
-
-	            ready = true;
-			});
 
 			let mpx = document.getElementById('mpx');
 			mpx.onchange = calculateCross;
@@ -396,7 +408,7 @@
 
 			calculateCross();
 
-			animate();
+			setup();
 		</script>
 	</body>
 
