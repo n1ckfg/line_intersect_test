@@ -56,20 +56,29 @@
 					this.k2 = _k2;
 
 					this.color = randomColorString();
-										
-					this.origin = this.createLine(new THREE.Vector3(0,0,0), new THREE.Vector3(0,-scale*10,0));
-					this.plane = this.createPlane(new THREE.Vector3(0,-scale*2,0));
+					
+					let planePos = new THREE.Vector3(0,-scale*3,0);
+					this.plane = this.createPlane(planePos);
 
-					this.geometry = new THREE.ConeBufferGeometry(scale/6, scale/3, 4);
-					this.geometry.rotateY(Math.PI/4);
-					this.material = new THREE.MeshBasicMaterial({color: this.color});
-					this.mesh = new THREE.Mesh(this.geometry, this.material);
+					let geo = new THREE.ConeGeometry(scale/6, scale/3, 4);
+					geo.rotateY(Math.PI/4);
+					let mtl = new THREE.MeshBasicMaterial({color: this.color});
+					this.cone = new THREE.Mesh(geo, mtl);
+					this.cone.add(this.plane);
 
-					this.mesh.add(this.origin);
-					this.mesh.add(this.plane);
+					let pointLine1 = this.createLine(this.cone.geometry.vertices[1], planePos.clone().add(this.plane.geometry.vertices[1]).sub(this.cone.geometry.vertices[1]));
+					let pointLine2 = this.createLine(this.cone.geometry.vertices[2], planePos.clone().add(this.plane.geometry.vertices[3]).sub(this.cone.geometry.vertices[2]));
+					let pointLine3 = this.createLine(this.cone.geometry.vertices[3], planePos.clone().add(this.plane.geometry.vertices[2]).sub(this.cone.geometry.vertices[3]));
+					let pointLine4 = this.createLine(this.cone.geometry.vertices[4], planePos.clone().add(this.plane.geometry.vertices[0]).sub(this.cone.geometry.vertices[4]));
+					
+					this.cone.add(pointLine1);
+					this.cone.add(pointLine2);
+					this.cone.add(pointLine3);
+					this.cone.add(pointLine4);
 
-					this.mesh.position.set(this.position.x, this.position.y, this.position.z);
-					this.mesh.rotation.set(this.rotation.x, this.rotation.y, this.rotation.z);
+					this.cone.position.set(this.position.x, this.position.y, this.position.z);
+					this.cone.rotation.set(this.rotation.x, this.rotation.y, this.rotation.z);
+					
 					this.points = [];
 				}
 
@@ -95,14 +104,15 @@
 					geo.setAttribute("position", new THREE.BufferAttribute(geo.positions, 3));
 					let mtl = new THREE.LineBasicMaterial({ color: this.color, side: THREE.DoubleSide });
 					let line = new THREE.Line(geo, mtl);
+					line.position.set(start.x, start.y, start.z);
 
-					geo.positions[0] = start.x;
-					geo.positions[1] = start.y;
-					geo.positions[2] = start.z;
+					geo.positions[0] = 0;
+					geo.positions[1] = 0;
+					geo.positions[2] = 0;
 
-					geo.positions[3] = start.x + end.x;
-					geo.positions[4] = start.y + end.y;
-					geo.positions[5] = start.z + end.z;
+					geo.positions[3] = end.x;
+					geo.positions[4] = end.y;
+					geo.positions[5] = end.z;
 
 					return line;
 				}
@@ -213,7 +223,7 @@
 
 				if (ready) {
 					for (let eye of eyes) {
-						scene.add(eye.mesh);
+						scene.add(eye.cone);
 					}
 					ready = false;
 				}
