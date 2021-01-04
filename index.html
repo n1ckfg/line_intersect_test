@@ -23,6 +23,7 @@
 			const CAMERA_SCALE = 20;
 			const PLANE_SCALE = 40;
 			const PLANE_DISTANCE = 80;
+			const LIMIT_FPS = false;
 
 			class Eye {
 
@@ -75,10 +76,10 @@
 
 					this.origin = this.cone.geometry.vertices[0];
 
-					let pointLine1 = Volume.createLine(this.cone.geometry.vertices[1], planePos.clone().add(this.plane.geometry.vertices[1]).sub(this.cone.geometry.vertices[1]), this.color);
-					let pointLine2 = Volume.createLine(this.cone.geometry.vertices[2], planePos.clone().add(this.plane.geometry.vertices[3]).sub(this.cone.geometry.vertices[2]), this.color);
-					let pointLine3 = Volume.createLine(this.cone.geometry.vertices[3], planePos.clone().add(this.plane.geometry.vertices[2]).sub(this.cone.geometry.vertices[3]), this.color);
-					let pointLine4 = Volume.createLine(this.cone.geometry.vertices[4], planePos.clone().add(this.plane.geometry.vertices[0]).sub(this.cone.geometry.vertices[4]), this.color);
+					let pointLine1 = Volume.createLine(this.cone.geometry.vertices[1], planePos.clone().add(this.plane.geometry.vertices[1]).sub(this.cone.geometry.vertices[1]), this.color, false);
+					let pointLine2 = Volume.createLine(this.cone.geometry.vertices[2], planePos.clone().add(this.plane.geometry.vertices[3]).sub(this.cone.geometry.vertices[2]), this.color, false);
+					let pointLine3 = Volume.createLine(this.cone.geometry.vertices[3], planePos.clone().add(this.plane.geometry.vertices[2]).sub(this.cone.geometry.vertices[3]), this.color, false);
+					let pointLine4 = Volume.createLine(this.cone.geometry.vertices[4], planePos.clone().add(this.plane.geometry.vertices[0]).sub(this.cone.geometry.vertices[4]), this.color, false);
 					
 					this.cone.add(pointLine1);
 					this.cone.add(pointLine2);
@@ -112,7 +113,7 @@
 
 					let x = Math.random() * this.planeWidth - this.planeWidth/2;
 					let y = Math.random() * this.planeHeight - this.planeHeight/2;
-					let point = Volume.createPoint(x, y, this.highlight);
+					let point = Volume.createPoint(x, 0, y, this.highlight);
 					this.points = [];
 					this.points.push(point);
 
@@ -121,7 +122,7 @@
 						let end = this.plane.position.clone().add(point.position).sub(this.origin);
 						start.y -= this.plane.position.y;
 
-						let line = Volume.createLine(start, end, this.highlight);
+						let line = Volume.createLine(start, end, this.highlight, false);
 						this.plane.add(line);
 						this.plane.add(point);
 					}
@@ -146,14 +147,18 @@
 				}
 
 				update() {
-					//Volume.clearObj(this.rays);
+					Volume.clearObj(this.rays);
 
 					for (let eye of this.eyes) {
 						eye.update();
 
 						for (let point of eye.points) {
-							//let ray = Volume.createLine(start, end, eye.highlight2);
-							//this.rays.add(ray);
+							let start = eye.cone.localToWorld(eye.origin.clone());
+							let end = eye.plane.localToWorld(point.localToWorld(point.position.clone()));
+							this.rays.add(Volume.createPoint(start.x, start.y, start.z, Volume.randomColorString()));
+							this.rays.add(Volume.createPoint(end.x, end.y, end.z, Volume.randomColorString()));
+							let ray = Volume.createLine(start, end, eye.highlight2, true);
+							this.rays.add(ray);
 						}
 					}
 				}
@@ -235,17 +240,24 @@
 					return "rgb(" + r + "," + g + "," + b + ")"
 				}
 
-				static createLine(start, end, color) {
+				static createLine(start, end, color, world) {
 					let geo = new THREE.BufferGeometry();
 					geo.positions = new Float32Array(6);
 					geo.setAttribute("position", new THREE.BufferAttribute(geo.positions, 3));
 					let mtl = new THREE.LineBasicMaterial({ color: color, side: THREE.DoubleSide });
 					let line = new THREE.Line(geo, mtl);
-					line.position.set(start.x, start.y, start.z);
+					
+					if (world === false) {
+						line.position.set(start.x, start.y, start.z);
 
-					geo.positions[0] = 0;
-					geo.positions[1] = 0;
-					geo.positions[2] = 0;
+						geo.positions[0] = 0;
+						geo.positions[1] = 0;
+						geo.positions[2] = 0;
+					} else {
+						geo.positions[0] = start.x;
+						geo.positions[1] = start.y;
+						geo.positions[2] = start.z;						
+					}
 
 					geo.positions[3] = end.x;
 					geo.positions[4] = end.y;
@@ -254,11 +266,11 @@
 					return line;
 				}
 
-				static createPoint(x, y, color) {
+				static createPoint(x, y, z, color) {
 					let sphere_geo = new THREE.SphereGeometry(SPHERE_SCALE, 4, 2);
 					let sphere_mtl = new THREE.MeshBasicMaterial({color: color});
 					let sphere = new THREE.Mesh(sphere_geo, sphere_mtl);
-					sphere.position.set(x, 0, y);
+					sphere.position.set(x, y, z);
 
 					return sphere;
 				}
@@ -362,9 +374,13 @@
 			}
 
 			function draw() {
-				setTimeout(function() {
+				if (LIMIT_FPS) {
+					setTimeout(function() {
+						requestAnimationFrame(draw);
+					}, 100);
+				} else {
 					requestAnimationFrame(draw);
-				}, 1000/30);
+				}
 				renderer.render(scene, camera);
 				controls.update();
 
