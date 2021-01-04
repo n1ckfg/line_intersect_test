@@ -112,10 +112,10 @@
 				update() {
 					Volume.clearObj(this.plane);
 
+					this.points = [];
 					let x = Math.random() * this.planeWidth - this.planeWidth/2;
 					let y = Math.random() * this.planeHeight - this.planeHeight/2;
 					let point = Volume.createPoint(x, 0, y, this.highlight);
-					this.points = [];
 					this.points.push(point);
 
 					for (let point of this.points) {
@@ -155,10 +155,8 @@
 
 						for (let point of eye.points) {
 							let start = eye.cone.localToWorld(eye.origin.clone());
-							//this.rays.add(Volume.createPoint(start.x, start.y, start.z, Volume.randomColorString()));
 							let end = eye.plane.localToWorld(point.localToWorld(point.position.clone()));
 							let newEnd = Volume.extendDirection(start, end, RAY_DISTANCE);
-							//this.rays.add(Volume.createPoint(newEnd.x, newEnd.y, newEnd.z, Volume.randomColorString()));
 							let ray = Volume.createLine(start, newEnd, eye.highlight2, true);
 
 							this.rays.add(ray);
@@ -168,9 +166,8 @@
 					for (let i=0; i<this.rays.children.length; i++) {
 						for (let j=0; j<this.rays.children.length; j++) {
 							if (i !== j) {
-								let point = Volume.calculateCross(this.rays.children[i], this.rays.children[j]);
+								let point = this.calculateCross(this.rays.children[i], this.rays.children[j]);
 								if (point !== undefined) {
-									this.rays.localToWorld(point.position);
 									this.rays.add(point);
 								}
 							}
@@ -300,7 +297,7 @@
 				// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
 				// cross methods by @hofk
 
-				static lineDistance(p, mp, q, mq) { // mp and mq    non-collinear
+				lineDistance(p, mp, q, mq) { // mp and mq    non-collinear
 					let pq = new THREE.Vector3().subVectors(q, p);
 					let n = new THREE.Vector3().crossVectors(mp, mq).normalize();
 					let d = pq.dot(n);
@@ -308,7 +305,7 @@
 					return Math.abs(d);
 				} 
 
-				static closestPointsDet(p, mp, q, mq) { // mp and mq    non-collinear
+				closestPointsDet(p, mp, q, mq) { // mp and mq    non-collinear
 					// using determinant
 				 	let qp = new THREE.Vector3().subVectors(p, q);
 					
@@ -331,7 +328,7 @@
 					return qnDet;		
 				}
 
-				static closestPointsCross(p, mp, q, mq) { // mp and mq    non-collinear
+				closestPointsCross(p, mp, q, mq) { // mp and mq    non-collinear
 					// using cross vectors
 					let qp = new THREE.Vector3().subVectors(p, q);
 					let pq = qp.clone().multiplyScalar(-1);
@@ -356,7 +353,7 @@
 					return pnCr;		
 				}
 
-				static getLineCoordinates(line, index) {
+				getLineCoordinates(line, index) {
 					let returns;
 					try {
 						if (index === 0) {
@@ -364,6 +361,9 @@
 						} else {
 							returns = new THREE.Vector3(line.geometry.positions[3], line.geometry.positions[4], line.geometry.positions[5]);
 						}
+
+						returns.x *= -1;
+						returns.z *= -1;
 					} catch (e) {
 						returns = undefined;
 					}
@@ -371,15 +371,15 @@
 					return returns;
 				}
 
-				static calculateCross(line1, line2) {
-					let p = Volume.getLineCoordinates(line1, 0);
-					let mp = Volume.getLineCoordinates(line1, 1);
-					let q = Volume.getLineCoordinates(line2, 0);
-					let mq = Volume.getLineCoordinates(line2, 1);
+				calculateCross(line1, line2) {
+					let p = this.getLineCoordinates(line1, 0);
+					let mp = this.getLineCoordinates(line1, 1);
+					let q = this.getLineCoordinates(line2, 0);
+					let mq = this.getLineCoordinates(line2, 1);
 					if (p !== undefined && mp !== undefined && q !== undefined && mq !== undefined) {
-						if (Volume.lineDistance(p, mp, q, mq) < SEARCH_DISTANCE) { 					
-							let v1 = Volume.closestPointsDet(p, mp, q, mq);	
-							let v2 = Volume.closestPointsCross(p, mp, q, mq);
+						if (this.lineDistance(p, mp, q, mq) < SEARCH_DISTANCE) { 					
+							let v1 = this.closestPointsDet(p, mp, q, mq);	
+							let v2 = this.closestPointsCross(p, mp, q, mq);
 
 							if (v1.distanceTo(v2) < CROSS_DISTANCE) {
 								let v3 = v1.add(v2).multiplyScalar(0.5);
