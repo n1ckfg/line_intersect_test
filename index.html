@@ -21,9 +21,11 @@
 
 			const SPHERE_SCALE = 1.5;
 			const CAMERA_SCALE = 20;
-			const PLANE_SCALE = 40;
+			const PLANE_SCALE = 20;
 			const PLANE_DISTANCE = 80;
+			const RAY_DISTANCE = 200;
 			const LIMIT_FPS = false;
+			const FPS = 5;
 
 			class Eye {
 
@@ -155,12 +157,21 @@
 						for (let point of eye.points) {
 							let start = eye.cone.localToWorld(eye.origin.clone());
 							let end = eye.plane.localToWorld(point.localToWorld(point.position.clone()));
-							this.rays.add(Volume.createPoint(start.x, start.y, start.z, Volume.randomColorString()));
-							this.rays.add(Volume.createPoint(end.x, end.y, end.z, Volume.randomColorString()));
-							let ray = Volume.createLine(start, end, eye.highlight2, true);
+							//this.rays.add(Volume.createPoint(start.x, start.y, start.z, Volume.randomColorString()));
+							//this.rays.add(Volume.createPoint(end.x, end.y, end.z, Volume.randomColorString()));
+							let newEnd = Volume.extendDirection(start, end, RAY_DISTANCE);
+							let ray = Volume.createLine(start, newEnd, eye.highlight2, true);
+
 							this.rays.add(ray);
 						}
 					}
+				}
+
+				static extendDirection(v1, v2, distance) {
+					let direction = new THREE.Vector3();
+					direction.subVectors(v2, v1).normalize();
+				    v2.addVectors(v1, direction.multiplyScalar(distance));
+				    return v2;
 				}
 
 				static clearObj(obj) {
@@ -377,7 +388,7 @@
 				if (LIMIT_FPS) {
 					setTimeout(function() {
 						requestAnimationFrame(draw);
-					}, 100);
+					}, 1000 / FPS);
 				} else {
 					requestAnimationFrame(draw);
 				}
