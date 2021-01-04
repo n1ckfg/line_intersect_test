@@ -146,20 +146,14 @@
 				}
 
 				update() {
-					Volume.clearObj(this.rays);
+					//Volume.clearObj(this.rays);
 
 					for (let eye of this.eyes) {
 						eye.update();
 
 						for (let point of eye.points) {
-							let start = eye.cone.localToWorld(eye.origin.clone());
-							//let end = eye.plane.localToWorld(eye.plane.position.clone().add(point.position).sub(eye.origin));
-							let end = start.clone();
-							end.z += 200;
-
-							let ray = Volume.createLine(start, end, eye.highlight2);
-							ray.lookAt(eye.plane.localToWorld(point.position.clone()));
-							this.rays.add(ray);
+							//let ray = Volume.createLine(start, end, eye.highlight2);
+							//this.rays.add(ray);
 						}
 					}
 				}
@@ -368,7 +362,9 @@
 			}
 
 			function draw() {
-				requestAnimationFrame(draw);
+				setTimeout(function() {
+					requestAnimationFrame(draw);
+				}, 1000/30);
 				renderer.render(scene, camera);
 				controls.update();
 
