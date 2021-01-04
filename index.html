@@ -19,7 +19,7 @@
 			// based on demo by @hofk
 			"use strict";
 
-			const SPHERE_SCALE = 0.5;
+			const SPHERE_SCALE = 1.5;
 			const CAMERA_SCALE = 20;
 			const PLANE_SCALE = 40;
 			const PLANE_DISTANCE = 80;
@@ -49,6 +49,11 @@
 					this.highlight.r = 1;
 					this.highlight.g *= 0.5;
 					this.highlight.b *= 0.5;
+					this.highlight2 = this.highlight.clone();
+					this.highlight2.setStyle(this.color);
+					this.highlight2.r *= 0.5;
+					this.highlight2.g *= 0.5;
+					this.highlight2.b = 1;					
 
 					let planePos = new THREE.Vector3(0,-PLANE_DISTANCE,0);
 					this.plane = this.createPlane(planePos);
@@ -132,9 +137,9 @@
 					this.plane_scale = PLANE_SCALE;
 					this.plane_distance = PLANE_DISTANCE;
 					this.root = new THREE.Object3D();
-					this.root.position.set(0,0,0);
+					//this.root.position.set(0,0,0);
 					this.rays = new THREE.Object3D();
-					this.rays.position.set(0,0,0);
+					//this.rays.position.set(0,0,0);
 					this.root.add(this.rays);
 
 					this.eyes = [];
@@ -145,8 +150,17 @@
 
 					for (let eye of this.eyes) {
 						eye.update();
-						let ray = Volume.createLine(new THREE.Vector3(0,0,0), new THREE.Vector3(100,Math.random() * 100,0), eye.color);
-						this.rays.add(ray);
+
+						for (let point of eye.points) {
+							let start = eye.cone.localToWorld(eye.origin.clone());
+							//let end = eye.plane.localToWorld(eye.plane.position.clone().add(point.position).sub(eye.origin));
+							let end = start.clone();
+							end.z += 200;
+
+							let ray = Volume.createLine(start, end, eye.highlight2);
+							ray.lookAt(eye.plane.localToWorld(point.position.clone()));
+							this.rays.add(ray);
+						}
 					}
 				}
 
