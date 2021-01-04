@@ -18,6 +18,10 @@
 			const PLANE_SCALE = 20;
 			const PLANE_DISTANCE = 80;
 			const RAY_DISTANCE = 200;
+
+			const SEARCH_DISTANCE = 20;
+			const CROSS_DISTANCE = 1;
+
 			const LIMIT_FPS = false;
 			const FPS = 5;
 
@@ -283,7 +287,7 @@
 				// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
 				// cross methods by @hofk
 
-				static linesDistance() { // mp and mq    non-collinear
+				static linesDistance(p, mp, q, mq) { // mp and mq    non-collinear
 					let pq = new THREE.Vector3().subVectors(q, p);
 					let n = new THREE.Vector3().crossVectors(mp, mq).normalize();
 					let d = pq.dot(n);
@@ -291,7 +295,7 @@
 					return Math.abs(d);
 				} 
 
-				static closestPointsDet() { // mp and mq    non-collinear
+				static closestPointsDet(p, mp, q, mq) { // mp and mq    non-collinear
 					// using determinant
 				 	let qp = new THREE.Vector3().subVectors(p, q);
 					
@@ -314,7 +318,7 @@
 					return qnDet;		
 				}
 
-				static closestPointsCross() { // mp and mq    non-collinear
+				static closestPointsCross(p, mp, q, mq) { // mp and mq    non-collinear
 					// using cross vectors
 					let qp = new THREE.Vector3().subVectors(p, q);
 					let pq = qp.clone().multiplyScalar(-1);
@@ -339,15 +343,22 @@
 					return pnCr;		
 				}
 
-				static calculateCross() { 					
-					Volume.closestPointsDet();	
-					Volume.closestPointsCross();
+				static calculateCross(line1, line2) {
+					let p = 0;
+					let mp = 0;
+					let q = 0;
+					let mq = 0;
 
-					//let finalPos = sphereR.position.clone().add(sphereG.position.clone());
-					//finalPos.multiplyScalar(0.5);
-					//sphereB.position.set(finalPos.x, finalPos.y, finalPos.z);
-										
-					//dist = linesDistance();	
+					if (Volume.lineDistance(p, mp, q, mq) < SEARCH_DISTANCE) { 					
+						let v1 = Volume.closestPointsDet(p, mp, q, mq);	
+						let v2 = Volume.closestPointsCross(p, mp, q, mq);
+
+						if (v1.distance(v2) < CROSS_DISTANCE) {
+							let v3 = v1.add(v2).multiplyScalar(0.5);
+							let point = createPoint(v3.x, v3.y, v3.z, Volume.randomColorString());
+							this.rays.push(point);
+						}
+					}	
 				}
 
 			}
