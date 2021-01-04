@@ -158,7 +158,6 @@
 							let end = eye.plane.localToWorld(point.localToWorld(point.position.clone()));
 							let newEnd = Volume.extendDirection(start, end, RAY_DISTANCE);
 							let ray = Volume.createLine(start, newEnd, eye.highlight2, true);
-
 							this.rays.add(ray);
 						}
 					}
